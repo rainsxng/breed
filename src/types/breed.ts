@@ -3,3 +3,7 @@ export interface BreedResponse {
         [breed: string]: string[]
     }
 }
+
+export interface BreedImageResponse {
+    message: string[],
+}
