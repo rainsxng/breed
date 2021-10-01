@@ -1,99 +1,103 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import { Button, PageHeader } from 'antd';
-import Select, { OnChangeValue } from 'react-select';
-
+import { useEffect, useState } from 'react';
+import Select from '@mui/material/Select'
 import './App.css';
-import {Selector} from "./types/selector";
-import PhotoList from "./containers/PhotoList/PhotoList";
-import {getBreedImages, getBreedList} from "./services/breed";
+import PhotoList from "./components/PhotoList";
+import { getBreedImages, getBreedList, getSubBreedList } from "./services/breed";
+import { Button, FormControl, FormHelperText, InputLabel, MenuItem, SelectChangeEvent } from '@mui/material';
 
 
 function App() {
-  const numbers = useMemo(() => {
-    return [1, 2, 3].map(number => ({
-      value: number.toString(),
-      label: number.toString(),
-    }))
-  }, [])
-  const breedRef = useRef<HTMLInputElement | null | any>(null)
-  const numberRef = useRef<HTMLInputElement | null | any>(null)
-
-  const [breed, setBreed] = useState<Selector | null>(null)
-  const [subBreed, setSubBreed] = useState<Selector | null>(null)
-  const [number, setNumber] = useState<Selector | null>()
+  const [breed, setBreed] = useState<string>('')
+  const [subBreed, setSubBreed] = useState<string>('')
+  const [number, setNumber] = useState<string>('')
   const [images, setImages] = useState<Array<string>>([])
 
-  const [breedsOptions, setBreedsOptions] = useState<Array<Selector>>([])
-  const [subBreedOtions, setSubBreedOptions] = useState<Array<Selector>>([])
+  const [breedsOptions, setBreedsOptions] = useState<Array<string>>([])
+  const [subBreedOtions, setSubBreedOptions] = useState<Array<string>>([])
+  const [breedError, setBreedError] = useState<boolean>(false)
+  const [numberError, setNumberError] = useState<boolean>(false)
 
-  const [message, setMessage] = useState('')
+  useEffect(() => {
+    getBreedList().then(breeds => setBreedsOptions(breeds));
+  }, [])
 
-   useEffect(() => {
-     getBreedList().then(breeds => setBreedsOptions(breeds));
-   }, [])
-    // TODO rewrite impl into a component
-    const handleClick = async () => {
-        if (!breed && breedRef.current) {
-            breedRef.current.controlRef.style.border = '1px solid red'
-            numberRef.current.controlRef.style.border = '1px solid black'
-            setMessage('select breed')
-        } else if (!number && numberRef.current) {
-            numberRef.current.controlRef.style.border = '1px solid red'
-            breedRef.current.controlRef.style.border = '1px solid black'
-            setMessage('select number')
-        } else {
-            setMessage('')
-            const breedInfo = breed?.value
-            const subBreadInfo = subBreed?.value
-            const numberInfo = number?.value
-            breedRef.current.controlRef.style.border = '1px solid black'
-            numberRef.current.controlRef.style.border = '1px solid black'
+  useEffect(() => {
+    breed && getSubBreedList(breed).then(subBreeds => setSubBreedOptions(subBreeds))
+  }, [breed])
 
-            if (breedInfo && numberInfo) {
-                const images = await getBreedImages(breedInfo, numberInfo, subBreadInfo);
-                setImages(images)
-            }
-        }
+  const handleClick = async () => {
+
+    if (!breed) {
+      setBreedError(true)
+      return
     }
+    if (!number) {
+      setNumberError(true)
+      return
+    }
+    const images = await getBreedImages(breed, number, subBreed);
+    setImages(images)
+  }
 
-  // @ts-ignore
-    return (
-      <div className="App">
-        <PageHeader
-            title="Title"
-            className='site-page-header'
-        />
-        <form onSubmit={e => e.preventDefault()}>
-          <div className="search">
+  const handleBreedChange = (event: SelectChangeEvent) => {
+    setBreed(event.target.value as string)
+    setBreedError(false)
+  }
+
+
+  const handleSubBreedChange = (event: SelectChangeEvent) => {
+    setSubBreed(event.target.value as string)
+  }
+
+  const handleImagesAmount = (event: SelectChangeEvent) => {
+    setNumber(event.target.value)
+    setNumberError(false)
+
+  }
+
+
+  return (
+    <div className="App">
+        <div className="App-search">
+          <FormControl required sx={{ m: 1, minWidth: 150 }} error={breedError}>
+            <InputLabel>Breed</InputLabel>
             <Select
-                value={breed}
-                onChange={() => {}}
-                options={breedsOptions}
-                ref={breedRef}
-            />
-
-            {subBreedOtions.length ? <Select
+              value={breed}
+              onChange={handleBreedChange}
+              required
+            >
+              {breedsOptions.map(breedOption => <MenuItem key={breedOption} value={breedOption}>{breedOption}</MenuItem>)}
+            </Select>
+            {!!breedError && <FormHelperText>Select Breed</FormHelperText>}
+          </FormControl>
+          {!!subBreedOtions.length && (
+            <FormControl sx={{ m: 1, minWidth: 150 }} >
+            <InputLabel>Subbreed</InputLabel>
+              <Select
                 value={subBreed}
-                onChange={() => {}}
-                options={subBreedOtions}
-            /> : null}
-
+                onChange={handleSubBreedChange}
+              >
+                {subBreedOtions.map(subBreedOption => <MenuItem key={subBreedOption} value={subBreedOption}>{subBreedOption}</MenuItem>)}
+              </Select>
+            </FormControl>
+          )
+          }
+          <FormControl required sx={{ m: 1, minWidth: 150 }} error={numberError}>
+            <InputLabel>Number of images</InputLabel>
             <Select
-                value={number}
-                onChange={() => {}}
-                options={numbers}
-                ref={numberRef}
-            />
+              value={number}
+              onChange={handleImagesAmount}
+            >
+              {[1, 2, 3].map(number => <MenuItem key={number} value={number}>{number}</MenuItem>)}
+            </Select>
+            {!!numberError && <FormHelperText>Select number of images</FormHelperText>}
+          </FormControl>
+          <Button onClick={handleClick} variant="outlined">View images</Button>
+        </div>
 
-            <Button onClick={handleClick} type="primary" shape="circle" size="large">view</Button>
-          </div>
-        </form>
+      <PhotoList images={images} />
 
-        <p style={{ textAlign: 'center' }}>{message}</p>
-
-        <PhotoList images={images} />
-
-      </div>
+    </div>
   );
 }
 
